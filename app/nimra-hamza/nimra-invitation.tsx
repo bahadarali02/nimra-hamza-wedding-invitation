@@ -106,11 +106,8 @@ function useCountdown() {
   const [
     remaining,
     setRemaining,
-  ] = useState(() =>
-    Math.max(
-      0,
-      target - Date.now()
-    )
+  ] = useState<number | null>(
+    null
   );
 
   useEffect(() => {
@@ -146,10 +143,24 @@ function useCountdown() {
       "0"
     );
 
+  if (
+    remaining ===
+    null
+  ) {
+    return {
+      days: "--",
+      hours: "--",
+      minutes: "--",
+      seconds: "--",
+    };
+  }
+
   return {
-    days: Math.floor(
-      remaining /
-        86400000
+    days: String(
+      Math.floor(
+        remaining /
+          86400000
+      )
     ),
 
     hours: pad(
@@ -527,11 +538,9 @@ export default function NimraInvitation() {
             "open"
           );
 
-          window.scrollTo(
-            {
-              top: 0,
-            }
-          );
+          window.scrollTo({
+            top: 0,
+          });
         },
         2400
       );
@@ -600,8 +609,6 @@ export default function NimraInvitation() {
                 progress,
             }}
           />
-
-          {/* HERO */}
 
           <section className="nh-hero">
             <div className="nh-hero-shimmer" />
@@ -754,8 +761,6 @@ export default function NimraInvitation() {
             </motion.div>
           </section>
 
-          {/* VERSE */}
-
           <section className="nh-section nh-verse-section">
             <motion.div
               {...reveal}
@@ -805,8 +810,6 @@ export default function NimraInvitation() {
               </p>
             </motion.div>
           </section>
-
-          {/* COUNTDOWN */}
 
           <section className="nh-section nh-countdown-section">
             <div className="nh-countdown-decoration one">
@@ -887,8 +890,6 @@ export default function NimraInvitation() {
             </motion.div>
           </section>
 
-          {/* EVENTS */}
-
           <section className="nh-section nh-events-section">
             <motion.div
               {...reveal}
@@ -937,8 +938,6 @@ export default function NimraInvitation() {
             </div>
           </section>
 
-          {/* PRESENCE */}
-
           <section className="nh-section nh-presence-section">
             <motion.div
               {...reveal}
@@ -977,8 +976,6 @@ export default function NimraInvitation() {
               </span>
             </motion.div>
           </section>
-
-          {/* CLOSING */}
 
           <section className="nh-section nh-closing-section">
             <motion.div
