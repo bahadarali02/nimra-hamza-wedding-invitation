@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -18,7 +19,9 @@ import {
   CalendarDays,
   Clock3,
   MapPin,
-  Sparkles,
+  Music2,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 type Phase =
@@ -29,7 +32,7 @@ type Phase =
 const reveal = {
   initial: {
     opacity: 0,
-    y: 28,
+    y: 26,
   },
 
   whileInView: {
@@ -39,66 +42,24 @@ const reveal = {
 
   viewport: {
     once: true,
-    margin: "-12% 0px",
+    margin: "-10% 0px",
   },
 
   transition: {
-    duration: 0.9,
+    duration: 0.85,
     ease: [0.22, 1, 0.36, 1] as const,
   },
 };
 
-function GoldDivider() {
-  return (
-    <div
-      className="nh-divider"
-      aria-hidden="true"
-    >
-      <span />
-      <i>✦</i>
-      <span />
-    </div>
-  );
-}
-
-function CornerFloral({
-  side,
-}: {
-  side: "left" | "right";
-}) {
-  return (
-    <div
-      className={`nh-floral nh-floral-${side}`}
-      aria-hidden="true"
-    >
-      <span className="nh-leaf leaf-a">
-        ❧
-      </span>
-
-      <span className="nh-leaf leaf-b">
-        ❧
-      </span>
-
-      <span className="nh-flower flower-a">
-        ✿
-      </span>
-
-      <span className="nh-flower flower-b">
-        ❀
-      </span>
-
-      <span className="nh-flower flower-c">
-        ✦
-      </span>
-    </div>
-  );
-}
+/* =====================================
+   COUNTDOWN
+===================================== */
 
 function useCountdown() {
   const target = useMemo(
     () =>
       new Date(
-        "2026-11-09T21:00:00+05:00"
+        "2026-11-09T19:00:00+05:00"
       ).getTime(),
     []
   );
@@ -135,14 +96,6 @@ function useCountdown() {
       );
   }, [target]);
 
-  const pad = (
-    value: number
-  ) =>
-    String(value).padStart(
-      2,
-      "0"
-    );
-
   if (
     remaining ===
     null
@@ -154,6 +107,14 @@ function useCountdown() {
       seconds: "--",
     };
   }
+
+  const pad = (
+    n: number
+  ) =>
+    String(n).padStart(
+      2,
+      "0"
+    );
 
   return {
     days: String(
@@ -186,6 +147,289 @@ function useCountdown() {
   };
 }
 
+/* =====================================
+   NEW AMBIENT MUSIC
+===================================== */
+
+function useAmbientMusic() {
+  const [
+    playing,
+    setPlaying,
+  ] =
+    useState(false);
+
+  const ctx =
+    useRef<AudioContext | null>(
+      null
+    );
+
+  const loop =
+    useRef<
+      number | null
+    >(null);
+
+  const playTone =
+    useCallback(
+      (
+        frequency: number,
+        delay: number,
+        duration: number,
+        volume: number
+      ) => {
+        if (
+          !ctx.current
+        ) {
+          return;
+        }
+
+        const context =
+          ctx.current;
+
+        const start =
+          context.currentTime +
+          delay;
+
+        const oscillator =
+          context.createOscillator();
+
+        const gain =
+          context.createGain();
+
+        oscillator.type =
+          "sine";
+
+        oscillator.frequency.setValueAtTime(
+          frequency,
+          start
+        );
+
+        gain.gain.setValueAtTime(
+          0.0001,
+          start
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+          volume,
+          start + 0.12
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+          0.0001,
+          start +
+            duration
+        );
+
+        oscillator.connect(
+          gain
+        );
+
+        gain.connect(
+          context.destination
+        );
+
+        oscillator.start(
+          start
+        );
+
+        oscillator.stop(
+          start +
+            duration +
+            0.2
+        );
+      },
+      []
+    );
+
+  const sequence =
+    useCallback(() => {
+      const melody = [
+        [392.0, 0],
+        [493.88, 0.85],
+        [587.33, 1.7],
+        [659.25, 2.55],
+        [587.33, 3.4],
+        [523.25, 4.25],
+        [493.88, 5.1],
+        [440.0, 5.95],
+      ] as const;
+
+      melody.forEach(
+        ([
+          frequency,
+          delay,
+        ]) => {
+          playTone(
+            frequency,
+            delay,
+            2.2,
+            0.025
+          );
+
+          playTone(
+            frequency / 2,
+            delay,
+            3.1,
+            0.012
+          );
+        }
+      );
+    }, [playTone]);
+
+  const start =
+    useCallback(
+      async () => {
+        if (
+          typeof window ===
+          "undefined"
+        ) {
+          return;
+        }
+
+        const AudioContextClass =
+          window.AudioContext ||
+          (
+            window as typeof window & {
+              webkitAudioContext?: typeof AudioContext;
+            }
+          )
+            .webkitAudioContext;
+
+        if (
+          !AudioContextClass
+        ) {
+          return;
+        }
+
+        if (
+          !ctx.current
+        ) {
+          ctx.current =
+            new AudioContextClass();
+        }
+
+        await ctx.current.resume();
+
+        setPlaying(
+          true
+        );
+
+        sequence();
+
+        if (
+          loop.current
+        ) {
+          window.clearInterval(
+            loop.current
+          );
+        }
+
+        loop.current =
+          window.setInterval(
+            sequence,
+            7200
+          );
+      },
+      [sequence]
+    );
+
+  const stop =
+    useCallback(() => {
+      setPlaying(
+        false
+      );
+
+      if (
+        loop.current
+      ) {
+        window.clearInterval(
+          loop.current
+        );
+
+        loop.current =
+          null;
+      }
+
+      if (
+        ctx.current?.state ===
+        "running"
+      ) {
+        void ctx.current.suspend();
+      }
+    }, []);
+
+  useEffect(() => {
+    return () => {
+      if (
+        loop.current
+      ) {
+        window.clearInterval(
+          loop.current
+        );
+      }
+
+      if (
+        ctx.current &&
+        ctx.current.state !==
+          "closed"
+      ) {
+        void ctx.current.close();
+      }
+    };
+  }, []);
+
+  return {
+    playing,
+    start,
+    stop,
+  };
+}
+
+/* =====================================
+   DECORATION
+===================================== */
+
+function GoldDivider() {
+  return (
+    <div
+      className="nh-divider"
+      aria-hidden="true"
+    >
+      <span />
+      <i>✦</i>
+      <span />
+    </div>
+  );
+}
+
+function CornerOrnament({
+  position,
+}: {
+  position:
+    | "tl"
+    | "tr"
+    | "bl"
+    | "br";
+}) {
+  return (
+    <div
+      className={`nh-corner nh-corner-${position}`}
+      aria-hidden="true"
+    >
+      <span className="nh-corner-vine">
+        ❧
+      </span>
+
+      <span className="nh-corner-flower">
+        ✦
+      </span>
+    </div>
+  );
+}
+
+/* =====================================
+   ENVELOPE
+===================================== */
+
 function Envelope({
   opening,
   onOpen,
@@ -194,17 +438,10 @@ function Envelope({
   onOpen: () => void;
 }) {
   return (
-    <section
-      className={`nh-envelope-screen ${
-        opening
-          ? "is-opening"
-          : ""
-      }`}
-    >
-      <div className="nh-envelope-background">
-        <span />
-        <span />
-        <span />
+    <section className="nh-envelope-screen">
+      <div className="nh-envelope-bg">
+        <div className="nh-envelope-bg-ring r1" />
+        <div className="nh-envelope-bg-ring r2" />
       </div>
 
       <motion.div
@@ -212,8 +449,8 @@ function Envelope({
         animate={
           opening
             ? {
-                y: -20,
-                scale: 1.035,
+                y: -12,
+                scale: 1.025,
               }
             : {
                 y: 0,
@@ -221,7 +458,7 @@ function Envelope({
               }
         }
         transition={{
-          duration: 1.3,
+          duration: 1.1,
           ease: [
             0.22,
             1,
@@ -232,21 +469,18 @@ function Envelope({
       >
         <div className="nh-envelope-shadow" />
 
-        <div className="nh-envelope-body">
+        <div className="nh-envelope">
           <div className="nh-envelope-back" />
 
           <motion.div
-            className="nh-letter"
+            className="nh-envelope-letter"
             animate={
               opening
                 ? {
-                    y: -145,
-                    scale:
-                      1.03,
+                    y: -130,
                   }
                 : {
                     y: 0,
-                    scale: 1,
                   }
             }
             transition={{
@@ -254,8 +488,7 @@ function Envelope({
                 opening
                   ? 0.55
                   : 0,
-              duration:
-                1.35,
+              duration: 1.2,
               ease: [
                 0.22,
                 1,
@@ -269,19 +502,25 @@ function Envelope({
               INVITATION
             </p>
 
-            <div className="nh-letter-monogram">
-              N
+            <div className="nh-envelope-monogram">
+              <strong>
+                N
+              </strong>
+
               <span>
                 &amp;
               </span>
-              H
+
+              <strong>
+                H
+              </strong>
             </div>
 
-            <strong>
-              Nimra
-              &amp;
-              Hamza
-            </strong>
+            <small>
+              09 • 10
+              NOVEMBER
+              2026
+            </small>
           </motion.div>
 
           <div className="nh-envelope-left" />
@@ -290,20 +529,14 @@ function Envelope({
 
           <motion.div
             className="nh-envelope-flap"
-            animate={
-              opening
-                ? {
-                    rotateX:
-                      180,
-                  }
-                : {
-                    rotateX:
-                      0,
-                  }
-            }
+            animate={{
+              rotateX:
+                opening
+                  ? 180
+                  : 0,
+            }}
             transition={{
-              duration:
-                1.05,
+              duration: 1,
               ease: [
                 0.22,
                 1,
@@ -314,48 +547,33 @@ function Envelope({
           />
 
           <motion.button
-            type="button"
             className="nh-seal"
+            type="button"
             onClick={
               onOpen
             }
-            aria-label="Open wedding invitation"
+            aria-label="Open invitation"
             animate={
               opening
                 ? {
-                    opacity:
-                      0,
-                    scale:
-                      0.75,
+                    opacity: 0,
+                    scale: 0.7,
                   }
                 : {
-                    opacity:
-                      1,
+                    opacity: 1,
                     scale: 1,
                   }
             }
-            transition={{
-              duration:
-                0.4,
-            }}
           >
-            <span>
-              N
-            </span>
-
-            <i>
-              ✦
-            </i>
-
-            <span>
-              H
-            </span>
+            N
+            <i>✦</i>
+            H
           </motion.button>
         </div>
       </motion.div>
 
       <motion.div
-        className="nh-envelope-caption"
+        className="nh-envelope-copy"
         animate={{
           opacity:
             opening
@@ -363,52 +581,55 @@ function Envelope({
               : 1,
         }}
       >
-        <p>
+        <strong>
           You&apos;re
           Invited
-        </p>
+        </strong>
 
         <span>
-          TAP THE SEAL TO
-          OPEN
+          TAP THE SEAL
+          TO OPEN
         </span>
       </motion.div>
     </section>
   );
 }
 
+/* =====================================
+   EVENTS
+===================================== */
+
 function EventCard({
-  index,
+  number,
   title,
   date,
   time,
-  isHome,
   venue,
   address,
+  atHome,
 }: {
-  index: string;
+  number: string;
   title: string;
   date: string;
   time: string;
-  isHome?: boolean;
   venue?: string;
   address?: string;
+  atHome?: boolean;
 }) {
   return (
     <motion.article
       {...reveal}
-      className="nh-event-card"
+      className="nh-event"
     >
-      <div className="nh-event-inner-border" />
+      <div className="nh-event-frame" />
 
-      <span className="nh-event-number">
-        {index}
-      </span>
+      <p className="nh-event-number">
+        {number}
+      </p>
 
-      <Sparkles
-        className="nh-event-spark"
-        size={18}
-      />
+      <div className="nh-event-glyph">
+        ✦
+      </div>
 
       <h3>
         {title}
@@ -416,35 +637,37 @@ function EventCard({
 
       <GoldDivider />
 
-      <div className="nh-event-row">
-        <CalendarDays
-          size={16}
-        />
+      <div className="nh-event-meta">
+        <div>
+          <CalendarDays
+            size={15}
+          />
 
-        <span>
-          {date}
-        </span>
+          <span>
+            {date}
+          </span>
+        </div>
+
+        <div>
+          <Clock3
+            size={15}
+          />
+
+          <span>
+            {time}
+          </span>
+        </div>
       </div>
 
-      <div className="nh-event-row">
-        <Clock3
-          size={16}
-        />
-
-        <span>
-          {time}
-        </span>
-      </div>
-
-      {isHome ? (
-        <div className="nh-home-detail">
+      {atHome ? (
+        <div className="nh-home">
           <span>
             AN INTIMATE
+            FAMILY
             CELEBRATION
           </span>
 
           <strong>
-            At the
             Bride&apos;s
             Residence
           </strong>
@@ -452,9 +675,9 @@ function EventCard({
       ) : null}
 
       {venue ? (
-        <div className="nh-venue-detail">
+        <div className="nh-venue">
           <MapPin
-            size={18}
+            size={17}
           />
 
           <div>
@@ -474,7 +697,7 @@ function EventCard({
       {venue &&
       address ? (
         <a
-          className="nh-venue-button"
+          className="nh-map"
           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
             `${venue} ${address}`
           )}`}
@@ -482,7 +705,7 @@ function EventCard({
           rel="noreferrer"
         >
           <MapPin
-            size={14}
+            size={13}
           />
 
           View Venue
@@ -491,6 +714,10 @@ function EventCard({
     </motion.article>
   );
 }
+
+/* =====================================
+   MAIN
+===================================== */
 
 export default function NimraInvitation() {
   const [
@@ -504,6 +731,9 @@ export default function NimraInvitation() {
   const countdown =
     useCountdown();
 
+  const music =
+    useAmbientMusic();
+
   const {
     scrollYProgress,
   } = useScroll();
@@ -512,14 +742,12 @@ export default function NimraInvitation() {
     useSpring(
       scrollYProgress,
       {
-        stiffness:
-          75,
-        damping:
-          22,
+        stiffness: 70,
+        damping: 22,
       }
     );
 
-  const openInvitation =
+  const open =
     useCallback(() => {
       if (
         phase !==
@@ -532,6 +760,8 @@ export default function NimraInvitation() {
         "opening"
       );
 
+      void music.start();
+
       window.setTimeout(
         () => {
           setPhase(
@@ -542,9 +772,12 @@ export default function NimraInvitation() {
             top: 0,
           });
         },
-        2400
+        2200
       );
-    }, [phase]);
+    }, [
+      phase,
+      music,
+    ]);
 
   useEffect(() => {
     const old =
@@ -576,14 +809,12 @@ export default function NimraInvitation() {
             }}
             exit={{
               opacity: 0,
-              scale:
-                1.03,
               filter:
-                "blur(8px)",
+                "blur(7px)",
+              scale: 1.025,
             }}
             transition={{
-              duration:
-                0.85,
+              duration: 0.8,
             }}
           >
             <Envelope
@@ -592,7 +823,7 @@ export default function NimraInvitation() {
                 "opening"
               }
               onOpen={
-                openInvitation
+                open
               }
             />
           </motion.div>
@@ -610,49 +841,19 @@ export default function NimraInvitation() {
             }}
           />
 
+          {/* HERO */}
+
           <section className="nh-hero">
-            <div className="nh-hero-shimmer" />
+            <div className="nh-hero-light" />
 
-            <div className="nh-hero-glow glow-one" />
-            <div className="nh-hero-glow glow-two" />
+            <CornerOrnament position="tl" />
+            <CornerOrnament position="tr" />
+            <CornerOrnament position="bl" />
+            <CornerOrnament position="br" />
 
-            <CornerFloral side="left" />
-            <CornerFloral side="right" />
-
-            <div className="nh-main-arch">
-              <div className="nh-main-arch-inner" />
+            <div className="nh-hero-frame">
+              <div className="nh-hero-frame-inner" />
             </div>
-
-            <motion.div
-              className="nh-top-monogram"
-              initial={{
-                opacity: 0,
-                y: -18,
-                scale:
-                  0.8,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                scale: 1,
-              }}
-              transition={{
-                duration:
-                  1.2,
-              }}
-            >
-              <span>
-                N
-              </span>
-
-              <i>
-                &amp;
-              </i>
-
-              <span>
-                H
-              </span>
-            </motion.div>
 
             <motion.div
               className="nh-hero-content"
@@ -665,30 +866,35 @@ export default function NimraInvitation() {
                 y: 0,
               }}
               transition={{
-                delay:
-                  0.22,
-                duration:
-                  1.2,
+                duration: 1.15,
               }}
             >
-              <p className="nh-overline">
-                WEDDING
-                INVITATION
+              <div className="nh-monogram">
+                <span>N</span>
+                <i>&amp;</i>
+                <span>H</span>
+              </div>
+
+              <p className="nh-kicker">
+                TOGETHER WITH
+                THEIR FAMILIES
               </p>
 
-              <div className="nh-bismillah-wrap">
+              <div className="nh-bismillah-block">
                 <p className="nh-bismillah">
                   بِسْمِ ٱللَّٰهِ
                   ٱلرَّحْمَٰنِ
                   ٱلرَّحِيمِ
                 </p>
 
-                <p className="nh-bismillah-en">
-                  In the name of
-                  Allah, the Most
-                  Gracious, the
-                  Most Merciful
-                </p>
+                <span>
+                  In the name
+                  of Allah,
+                  the Most
+                  Gracious,
+                  the Most
+                  Merciful
+                </span>
               </div>
 
               <GoldDivider />
@@ -697,16 +903,18 @@ export default function NimraInvitation() {
                 MRS. JAVED
               </p>
 
-              <p className="nh-request">
+              <p className="nh-invites">
+                cordially
                 requests the
-                pleasure of your
-                company at the
-                wedding celebration
+                pleasure of
+                your company
+                at the wedding
+                celebrations
                 of her beloved
                 daughter
               </p>
 
-              <div className="nh-couple">
+              <div className="nh-names">
                 <h1>
                   Nimra
                   Javed
@@ -714,11 +922,9 @@ export default function NimraInvitation() {
 
                 <div className="nh-weds">
                   <span />
-
                   <b>
                     WEDS
                   </b>
-
                   <span />
                 </div>
 
@@ -728,51 +934,49 @@ export default function NimraInvitation() {
                 </h1>
               </div>
 
-              <div className="nh-date-medallion">
-                <div className="nh-date-ring">
-                  <div className="nh-date-numbers">
-                    <strong>
-                      09
-                    </strong>
+              <div className="nh-date">
+                <strong>
+                  09
+                </strong>
 
-                    <i>
-                      —
-                    </i>
-
-                    <strong>
-                      10
-                    </strong>
-                  </div>
-
+                <div>
                   <span>
                     NOVEMBER
                   </span>
 
-                  <small>
+                  <i>
                     2026
-                  </small>
+                  </i>
                 </div>
+
+                <strong>
+                  10
+                </strong>
               </div>
 
               <p className="nh-scroll">
                 SCROLL TO
-                DISCOVER
+                EXPLORE
               </p>
             </motion.div>
           </section>
 
+          {/* VERSE */}
+
           <section className="nh-section nh-verse-section">
             <motion.div
               {...reveal}
-              className="nh-verse-card"
+              className="nh-ornate-card"
             >
-              <span className="nh-card-star">
-                ✦
-              </span>
+              <div className="nh-ornate-border" />
 
-              <p className="nh-section-overline">
+              <p className="nh-eyebrow">
                 A BLESSING
               </p>
+
+              <span className="nh-star">
+                ✦
+              </span>
 
               <p className="nh-arabic">
                 وَمِنْ آيَاتِهِ
@@ -790,7 +994,7 @@ export default function NimraInvitation() {
 
               <GoldDivider />
 
-              <p className="nh-verse-english">
+              <p className="nh-verse">
                 “And among His
                 signs is that He
                 created for you
@@ -806,39 +1010,31 @@ export default function NimraInvitation() {
 
               <p className="nh-reference">
                 SURAH AR-RUM
-                30:21
+                · 30:21
               </p>
             </motion.div>
           </section>
 
-          <section className="nh-section nh-countdown-section">
-            <div className="nh-countdown-decoration one">
-              ✦
-            </div>
+          {/* COUNTDOWN */}
 
-            <div className="nh-countdown-decoration two">
-              ✦
-            </div>
-
+          <section className="nh-section nh-count-section">
             <motion.div
               {...reveal}
-              className="nh-countdown-content"
+              className="nh-count-content"
             >
-              <p className="nh-light-overline">
-                THE CELEBRATION
-                BEGINS IN
+              <p className="nh-eyebrow light">
+                UNTIL THE
+                CELEBRATION
               </p>
 
               <h2>
-                Counting
-                Down
-                <br />
-                to Forever
+                A Beautiful
+                Beginning
               </h2>
 
               <GoldDivider />
 
-              <div className="nh-countdown">
+              <div className="nh-counter">
                 <div>
                   <strong>
                     {
@@ -871,7 +1067,7 @@ export default function NimraInvitation() {
                   </strong>
 
                   <span>
-                    MIN
+                    MINUTES
                   </span>
                 </div>
 
@@ -883,104 +1079,110 @@ export default function NimraInvitation() {
                   </strong>
 
                   <span>
-                    SEC
+                    SECONDS
                   </span>
                 </div>
               </div>
             </motion.div>
           </section>
 
+          {/* EVENTS */}
+
           <section className="nh-section nh-events-section">
             <motion.div
               {...reveal}
-              className="nh-events-heading"
+              className="nh-section-intro"
             >
-              <p className="nh-section-overline">
+              <p className="nh-eyebrow">
                 SAVE THE
                 DATES
               </p>
 
               <h2>
                 Wedding
-                <br />
                 Celebrations
               </h2>
 
+              <GoldDivider />
+
               <p>
-                Your presence
-                will make these
+                We warmly
+                invite you to
+                join us and
+                bless the
+                couple as we
+                celebrate these
                 cherished
-                moments even
-                more beautiful.
-                We warmly invite
-                you to celebrate
-                with us.
+                moments.
               </p>
             </motion.div>
 
-            <div className="nh-event-list">
+            <div className="nh-events">
               <EventCard
-                index="01"
+                number="01"
                 title="Mehndi"
                 date="09 November 2026"
-                time="9:00 PM"
-                isHome
+                time="7:00 PM"
+                atHome
               />
 
               <EventCard
-                index="02"
+                number="02"
                 title="Baraat"
                 date="10 November 2026"
-                time="2:00 PM"
+                time="1:00 PM – 3:00 PM"
                 venue="Royal Palace Marquee"
                 address="Fatehpur, Layyah"
               />
             </div>
           </section>
 
+          {/* PRESENCE */}
+
           <section className="nh-section nh-presence-section">
             <motion.div
               {...reveal}
-              className="nh-presence-card"
+              className="nh-presence"
             >
-              <span className="nh-presence-star">
+              <div className="nh-presence-border" />
+
+              <span className="nh-star">
                 ✦
               </span>
 
-              <p className="nh-light-overline">
-                A GENTLE
-                REQUEST
+              <p className="nh-eyebrow light">
+                WITH LOVE
               </p>
 
               <h2>
-                Your
-                Presence
+                Your Presence
                 <br />
-                Is Our
-                Honour
+                Is Our Honour
               </h2>
 
               <p>
-                We sincerely
-                hope you will
-                join us and
-                bless the
-                couple with
-                your love,
-                prayers and
-                presence.
+                Your prayers
+                and presence
+                will make these
+                celebrations
+                even more
+                meaningful and
+                memorable for
+                our family.
               </p>
 
-              <span className="nh-presence-star bottom">
+              <span className="nh-star last">
                 ✦
               </span>
             </motion.div>
           </section>
 
-          <section className="nh-section nh-closing-section">
+          {/* CLOSING */}
+
+          <section className="nh-section nh-closing">
             <motion.div
               {...reveal}
-              className="nh-closing-content"
+              className="nh-closing-inner"
             >
               <div className="nh-closing-monogram">
                 N
@@ -990,26 +1192,26 @@ export default function NimraInvitation() {
                 H
               </div>
 
-              <p className="nh-section-overline">
+              <p className="nh-eyebrow">
                 WITH LOVE
                 &amp; DUAS
               </p>
 
               <h2>
-                We Look
-                Forward to
-                Celebrating
+                We Look Forward
+                to Celebrating
                 With You
               </h2>
 
               <GoldDivider />
 
-              <p className="nh-closing-message">
-                May this new
-                beginning be
-                filled with
-                love, happiness
-                and countless
+              <p>
+                May Allah bless
+                this beautiful
+                beginning with
+                love, peace,
+                happiness and
+                endless
                 blessings.
               </p>
 
@@ -1025,6 +1227,39 @@ export default function NimraInvitation() {
               </div>
             </motion.div>
           </section>
+
+          <button
+            type="button"
+            className="nh-music"
+            aria-label={
+              music.playing
+                ? "Pause music"
+                : "Play music"
+            }
+            onClick={() => {
+              if (
+                music.playing
+              ) {
+                music.stop();
+              } else {
+                void music.start();
+              }
+            }}
+          >
+            {music.playing ? (
+              <Volume2
+                size={16}
+              />
+            ) : (
+              <VolumeX
+                size={16}
+              />
+            )}
+
+            <Music2
+              size={11}
+            />
+          </button>
         </>
       )}
     </main>

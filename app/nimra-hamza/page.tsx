@@ -6,7 +6,7 @@ import "./nimra.css";
 export const metadata: Metadata = {
   title: "Nimra Javed & Hamza Ishfaq | Wedding Invitation",
   description:
-    "You are cordially invited to the wedding celebrations of Nimra Javed and Hamza Ishfaq.",
+    "Wedding celebrations of Nimra Javed and Hamza Ishfaq — 9 & 10 November 2026.",
 };
 
 export default function NimraHamzaPage() {
